@@ -4,16 +4,12 @@ import (
 	"regexp"
 	"strings"
 
-	cexp "github.com/videocoin/common/regexp"
 	cstr "github.com/videocoin/common/strings"
 
 	"github.com/videocoin/common/api/resource"
 )
 
 const (
-	// IDPattern represents the project identifier pattern.
-	IDPattern = "[a-z][-a-z0-9]{3,48}[a-z0-9]"
-
 	// CollectionID is the identifier of the resource that contains a list of
 	// projects.
 	CollectionID = "projects"
@@ -21,16 +17,16 @@ const (
 
 var (
 	// ErrInvalidName indicates that the project name is invalid.
-	ErrInvalidName = resource.PatternError(NamePattern)
+	ErrInvalidName = resource.PatternError(NamePattern.String())
 	// ErrInvalidID indicates that the project identifier is invalid.
-	ErrInvalidID = resource.PatternError(IDPattern)
+	ErrInvalidID = resource.PatternError(IDPattern.String())
 )
 
 var (
+	// IDPattern represents the project identifier pattern.
+	IDPattern = regexp.MustCompile(`^[a-z][-a-z0-9]{3,48}[a-z0-9]$`)
 	// NamePattern represents the project name pattern.
-	NamePattern = cstr.Join(CollectionID, resource.NameSeparator, IDPattern)
-	nameRegExp  = regexp.MustCompile(cstr.Join(cexp.Begin, NamePattern, cexp.End))
-	idRegExp    = regexp.MustCompile(cstr.Join(cexp.Begin, IDPattern, cexp.End))
+	NamePattern = regexp.MustCompile(`^projects/[a-z][-a-z0-9]{3,48}[a-z0-9]$`)
 )
 
 // Name returns the project name given a project identifier.
@@ -46,10 +42,10 @@ func IDFromName(name string) string {
 
 // IsValidName verifies whether the the project name is valid or not.
 func IsValidName(name string) bool {
-	return nameRegExp.MatchString(name)
+	return NamePattern.MatchString(name)
 }
 
 // IsValidID verifies whether the the project identifier is valid or not.
 func IsValidID(ID string) bool {
-	return idRegExp.MatchString(ID)
+	return IDPattern.MatchString(ID)
 }
