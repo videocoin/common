@@ -9,10 +9,10 @@ import (
 // ErrInvalidName indicates that the service name is invalid.
 var ErrInvalidName = resource.PatternError(NamePattern.String())
 
-// NamePattern represents the service name pattern.
-var NamePattern = regexp.MustCompile(`^[a-z]{3,20}.videocoin.network$`)
+// NamePattern is the service name pattern.
+var NamePattern = regexp.MustCompile(`^[a-z]{3,20}\.videocoin\.network$`)
 
-// IsValidName verifies whether the the service name is valid or not.
+// IsValidName whether a service name is valid.
 func IsValidName(name string) bool {
 	return NamePattern.MatchString(name)
 }

@@ -7,6 +7,6 @@ import (
 )
 
 // PatternError returns an error that indicates an invalid pattern.
-func PatternError(exp string) error {
-	return fmt.Errorf(strings.Join("value does not match regex pattern \"", exp, "\""))
+func PatternError(regexp string) error {
+	return fmt.Errorf(strings.Join("value does not match regex pattern \"", regexp, "\""))
 }
