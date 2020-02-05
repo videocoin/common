@@ -25,32 +25,39 @@ var (
 )
 
 var (
-	// IDPattern represents the service account key identifier pattern.
+	// IDPattern is the key identifier pattern.
 	IDPattern = regexp.MustCompile(`^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$`)
-	// NamePattern represents the service account name pattern.
-	NamePattern = regexp.MustCompile(`^projects/[a-z][-a-z0-9]{3,48}[a-z0-9]/serviceAccounts/[a-z][-a-z0-9]{4,28}[a-z0-9]@[a-z][-a-z0-9]{3,48}[a-z0-9]."vserviceaccount.com/keys/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$`)
+	// NamePattern is the key name pattern.
+	NamePattern = regexp.MustCompile(`^projects/[a-z][-a-z0-9]{3,48}[a-z0-9]/serviceAccounts/[a-z][-a-z0-9]{4,28}[a-z0-9]@[a-z][-a-z0-9]{3,48}[a-z0-9]\.vserviceaccount\.com/keys/[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-4[a-fA-F0-9]{3}-[8|9|aA|bB][a-fA-F0-9]{3}-[a-fA-F0-9]{12}$`)
 )
 
-// IDFromName derives the key identifier from the key's name.
-func IDFromName(name string) string {
-	return strings.SplitN(name, resource.NameSeparator, 6)[5]
+// IDFromName derives the key's identifier from its name.
+func IDFromName(name string) (string, error) {
+	if ok := IsValidName(name); !ok {
+		return "", ErrInvalidName
+	}
+	return strings.SplitN(name, resource.NameSeparator, 6)[5], nil
 }
 
-// Name returns the service account's name given a project identifier and a
-// unique identifier.
-func Name(projID string, accRef string, keyID string) (string, error) {
+// Name returns the key's name given a project identifier and a
+// service account email.
+func Name(projID string, accEmail string, keyID string) (string, error) {
+	saName, err := sa.Name(projID, accEmail)
+	if err != nil {
+		return "", err
+	}
 	if ok := IsValidID(keyID); !ok {
 		return "", ErrInvalidID
 	}
-	return cstr.JoinWithSeparator(resource.NameSeparator, sa.Name(projID, accRef), CollectionID, keyID)
+	return cstr.JoinWithSeparator(resource.NameSeparator, saName, CollectionID, keyID), nil
 }
 
-// IsValidName verifies whether the the project name is valid or not.
+// IsValidName reports whether a key name is valid.
 func IsValidName(name string) bool {
 	return NamePattern.MatchString(name)
 }
 
-// IsValidID verifies whether the the project identifier is valid or not.
+// IsValidID reports whether a key identifier is valid.
 // Note: current implementation is faster than regexp.
 func IsValidID(ID string) bool {
 	_, err := guuid.Parse(ID)

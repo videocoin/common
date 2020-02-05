@@ -37,8 +37,7 @@ func Name(ID string) (string, error) {
 	return cstr.JoinWithSeparator(resource.NameSeparator, CollectionID, ID), nil
 }
 
-// IDFromName derives the project identifier from the projects's
-// name.
+// IDFromName derives the project identifier from its name.
 func IDFromName(name string) (string, error) {
 	if ok := IsValidName(name); !ok {
 		return "", ErrInvalidName
