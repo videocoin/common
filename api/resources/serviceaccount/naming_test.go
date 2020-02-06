@@ -1,115 +1,80 @@
 package serviceaccount_test
 
 import (
+	"fmt"
 	"testing"
 
-	sa "github.com/videocoin/common/api/resource/serviceaccount"
+	sa "github.com/videocoin/cloud-pkg/api/resources/serviceaccount"
 
 	"github.com/stretchr/testify/require"
-	"github.com/videocoin/common/api/resource/project"
 )
 
-func TestName(t *testing.T) {
+func TestNewName(t *testing.T) {
 	tests := []struct {
-		name             string
 		projID, accEmail string
-		output           string
-		err              error
+		output           sa.Name
 	}{
 		{
-			name:     "invalid project id: starts with dash",
-			projID:   "-videocoin-123",
-			accEmail: "account1@videocoin-123.vserviceaccount.com",
-			output:   "",
-			err:      project.ErrInvalidID,
-		},
-		{
-			name:     "invalid account email: id must have at least 6 chars",
-			projID:   "videocoin-123",
-			accEmail: "acc@videocoin-123.vserviceaccount.com",
-			output:   "",
-			err:      sa.ErrInvalidEmail,
-		},
-		{
-			name:     "valid project id and service account email",
 			projID:   "videocoin-123",
 			accEmail: "account1@videocoin-123.vserviceaccount.com",
-			output:   "projects/videocoin-123/serviceAccounts/account1@videocoin-123.vserviceaccount.com",
-			err:      nil,
+			output:   sa.Name("projects/videocoin-123/serviceAccounts/account1@videocoin-123.vserviceaccount.com"),
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			output, err := sa.Name(test.projID, test.accEmail)
-			require.Equal(t, test.err, err)
-			require.Equal(t, test.output, output)
+		t.Run(fmt.Sprintf("proj id: %s, acc email: %s\n", test.projID, test.accEmail), func(t *testing.T) {
+			require.Equal(t, test.output, sa.NewName(test.projID, test.accEmail))
 		})
 	}
 }
 
-func TestEmail(t *testing.T) {
+func TestNewNameWildcard(t *testing.T) {
 	tests := []struct {
-		name          string
+		accEmail string
+		output   sa.Name
+	}{
+		{
+			accEmail: "account1@videocoin-123.vserviceaccount.com",
+			output:   sa.Name("projects/-/serviceAccounts/account1@videocoin-123.vserviceaccount.com"),
+		},
+	}
+	for _, test := range tests {
+		t.Run(fmt.Sprintf("acc email: %s\n", test.accEmail), func(t *testing.T) {
+			require.Equal(t, test.output, sa.NewNameWildcard(test.accEmail))
+		})
+	}
+}
+
+func TestNewEmail(t *testing.T) {
+	tests := []struct {
 		projID, accID string
 		output        string
-		err           error
 	}{
 		{
-			name:   "invalid project id: starts with dash",
-			projID: "-videocoin-123",
-			accID:  "account1",
-			output: "",
-			err:    project.ErrInvalidID,
-		},
-		{
-			name:   "invalid account id: must have at least 3 chars",
-			projID: "videocoin-123",
-			accID:  "acc",
-			output: "",
-			err:    sa.ErrInvalidID,
-		},
-		{
-			name:   "valid project id and service account id",
 			projID: "videocoin-123",
 			accID:  "account1",
 			output: "account1@videocoin-123.vserviceaccount.com",
-			err:    nil,
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			output, err := sa.Email(test.projID, test.accID)
-			require.Equal(t, test.err, err)
-			require.Equal(t, test.output, output)
+		t.Run(fmt.Sprintf("proj id: %s, acc id: %s\n", test.projID, test.accID), func(t *testing.T) {
+			require.Equal(t, test.output, sa.NewEmail(test.projID, test.accID))
 		})
 	}
 }
 
-func TestEmailFromName(t *testing.T) {
+func TestNameEmail(t *testing.T) {
 	tests := []struct {
-		name   string
-		saName string
+		saName sa.Name
 		output string
-		err    error
 	}{
 		{
-			name:   "invalid name: incorrect domain",
-			saName: "projects/videocoin-123/serviceAccounts/account1@videocoin-123.gserviceaccount.com",
-			output: "",
-			err:    sa.ErrInvalidName,
-		},
-		{
-			name:   "valid name",
-			saName: "projects/videocoin-123/serviceAccounts/account1@videocoin-123.vserviceaccount.com",
+			saName: sa.Name("projects/videocoin-123/serviceAccounts/account1@videocoin-123.vserviceaccount.com"),
 			output: "account1@videocoin-123.vserviceaccount.com",
-			err:    nil,
 		},
 	}
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			output, err := sa.EmailFromName(test.saName)
-			require.Equal(t, test.err, err)
-			require.Equal(t, test.output, output)
+		t.Run(fmt.Sprintf("acc name: %s\n", string(test.saName)), func(t *testing.T) {
+			require.Equal(t, test.output, test.saName.Email())
 		})
 	}
 }
@@ -167,36 +132,49 @@ func TestIsValidEmail(t *testing.T) {
 	}
 }
 
-func TestIsValidName(t *testing.T) {
+func TestParseName(t *testing.T) {
 	tests := []struct {
 		name   string
 		saName string
-		output bool
+		output sa.Name
+		err    error
 	}{
 		{
 			name:   "invalid name: incorrect collection id",
 			saName: "projects/videocoin-123/serviceAccount/account1@videocoin-123.vserviceaccount.com",
-			output: false,
+			output: "",
+			err:    sa.ErrInvalidName,
 		},
 		{
 			name:   "invalid name: incorrect domain",
 			saName: "projects/videocoin-123/serviceAccounts/account1@videocoin-123.gserviceaccount.com",
-			output: false,
+			output: "",
+			err:    sa.ErrInvalidName,
 		},
 		{
 			name:   "invalid name: missing @",
 			saName: "projects/videocoin-123/serviceAccounts/account1videocoin-123.vserviceaccount.com",
-			output: false,
+			output: "",
+			err:    sa.ErrInvalidName,
+		},
+		{
+			name:   "valid name wildcard",
+			saName: "projects/-/serviceAccounts/account1@videocoin-123.vserviceaccount.com",
+			output: sa.Name("projects/-/serviceAccounts/account1@videocoin-123.vserviceaccount.com"),
+			err:    nil,
 		},
 		{
 			name:   "valid name",
 			saName: "projects/videocoin-123/serviceAccounts/account1@videocoin-123.vserviceaccount.com",
-			output: true,
+			output: sa.Name("projects/videocoin-123/serviceAccounts/account1@videocoin-123.vserviceaccount.com"),
+			err:    nil,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, test.output, sa.IsValidName(test.saName))
+			output, err := sa.ParseName(test.saName)
+			require.Equal(t, test.err, err)
+			require.Equal(t, test.output, output)
 		})
 	}
 }

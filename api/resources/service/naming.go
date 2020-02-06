@@ -3,11 +3,11 @@ package service
 import (
 	"regexp"
 
-	"github.com/videocoin/common/api/resource"
+	"github.com/videocoin/cloud-pkg/api/resources"
 )
 
 // ErrInvalidName indicates that the service name is invalid.
-var ErrInvalidName = resource.PatternError(NamePattern.String())
+var ErrInvalidName = resources.PatternError(NamePattern.String())
 
 // NamePattern is the service name pattern.
 var NamePattern = regexp.MustCompile(`^[a-z]{3,20}\.videocoin\.network$`)
