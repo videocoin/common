@@ -4,10 +4,10 @@ import (
 	"regexp"
 	"strings"
 
-	cstr "github.com/videocoin/cloud-pkg/strings"
+	cstr "github.com/videocoin/common/strings"
 
-	"github.com/videocoin/cloud-pkg/api/resources"
-	"github.com/videocoin/cloud-pkg/api/resources/project"
+	"github.com/videocoin/common/api/resources"
+	"github.com/videocoin/common/api/resources/project"
 )
 
 const (

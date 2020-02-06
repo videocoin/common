@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	sa "github.com/videocoin/cloud-pkg/api/resources/serviceaccount"
+	sa "github.com/videocoin/common/api/resources/serviceaccount"
 
 	"github.com/stretchr/testify/require"
 )

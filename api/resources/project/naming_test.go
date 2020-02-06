@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/videocoin/cloud-pkg/api/resources/project"
+	"github.com/videocoin/common/api/resources/project"
 )
 
 func TestNameID(t *testing.T) {

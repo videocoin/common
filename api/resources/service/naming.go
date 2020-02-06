@@ -3,7 +3,7 @@ package service
 import (
 	"regexp"
 
-	"github.com/videocoin/cloud-pkg/api/resources"
+	"github.com/videocoin/common/api/resources"
 )
 
 // ErrInvalidName indicates that the service name is invalid.

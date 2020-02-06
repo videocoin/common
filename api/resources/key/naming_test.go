@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"github.com/videocoin/cloud-pkg/api/resources/key"
+	"github.com/videocoin/common/api/resources/key"
 )
 
 func TestNewName(t *testing.T) {

@@ -3,7 +3,7 @@ package resources
 import (
 	"fmt"
 
-	"github.com/videocoin/cloud-pkg/strings"
+	"github.com/videocoin/common/strings"
 )
 
 // PatternError returns an error that indicates an invalid pattern.

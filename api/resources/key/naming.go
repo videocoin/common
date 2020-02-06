@@ -5,10 +5,10 @@ import (
 	"strings"
 
 	guuid "github.com/google/uuid"
-	sa "github.com/videocoin/cloud-pkg/api/resources/serviceaccount"
-	cstr "github.com/videocoin/cloud-pkg/strings"
+	sa "github.com/videocoin/common/api/resources/serviceaccount"
+	cstr "github.com/videocoin/common/strings"
 
-	"github.com/videocoin/cloud-pkg/api/resources"
+	"github.com/videocoin/common/api/resources"
 )
 
 const (
