@@ -13,6 +13,9 @@ type Logger interface {
 	Warnf(format string, args ...interface{})
 	Warnln(args ...interface{})
 
+	Fatalf(format string, args ...interface{})
+	Fatalln(args ...interface{})
+
 	WithField(key string, value interface{}) Logger
 	WithFields(Fields) Logger
 }

@@ -14,5 +14,7 @@ func (noOp) Warnf(format string, args ...interface{})       {}
 func (noOp) Warnln(args ...interface{})                     {}
 func (noOp) Errorf(format string, args ...interface{})      {}
 func (noOp) Errorln(args ...interface{})                    {}
+func (noOp) Fatalf(format string, args ...interface{})      {}
+func (noOp) Fatalln(args ...interface{})                    {}
 func (noOp) WithField(key string, value interface{}) Logger { return noOp{} }
 func (noOp) WithFields(Fields) Logger                       { return noOp{} }
