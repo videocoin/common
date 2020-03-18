@@ -7,11 +7,11 @@ import (
 )
 
 // NewLogrus makes a new Interface backed by a logrus logger
-func NewLogrus(level logrus.Level) Logger {
+func NewLogrus(level logrus.Level) *logrus.Logger {
 	log := logrus.New()
 	log.Out = os.Stderr
 	log.Level = level
-	return logrusLogger{log}
+	return log
 }
 
 // Logrus wraps an existing Logrus logger.
