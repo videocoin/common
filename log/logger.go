@@ -15,9 +15,6 @@ type Logger interface {
 
 	Fatalf(format string, args ...interface{})
 	Fatalln(args ...interface{})
-
-	WithField(key string, value interface{}) Logger
-	WithFields(Fields) Logger
 }
 
 // Fields convenience type for adding multiple fields to a log statement.

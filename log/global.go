@@ -61,8 +61,3 @@ func Fatalf(format string, args ...interface{}) {
 func Fatalln(args ...interface{}) {
 	global.Fatalln(args...)
 }
-
-// WithField convenience function calls the global logger.
-func WithField(key string, value interface{}) Logger {
-	return global.WithField(key, value)
-}
