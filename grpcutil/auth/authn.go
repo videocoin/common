@@ -49,16 +49,16 @@ func ServiceAccountAuthN(ctx context.Context, audience string, pubKeyURLTemplate
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			}
 
-			kid := token.Header["kid"].(string)
-			if kid == "" {
+			kid, ok := token.Header["kid"]
+			if !ok {
 				return nil, fmt.Errorf("Key ID is missing")
 			}
 
-			if _, err := uuid.Parse(token.Header["kid"].(string)); err != nil {
+			if _, err := uuid.Parse(kid.(string)); err != nil {
 				return nil, fmt.Errorf("Invalid kid: %v", kid)
 			}
 
-			return ServiceAccountPublicKey(pubKeyURLTemplate, claims.Subject, kid)
+			return ServiceAccountPublicKey(pubKeyURLTemplate, claims.Subject, kid.(string))
 		})
 		if err != nil {
 			if ve, ok := err.(*jwt.ValidationError); ok {
@@ -75,8 +75,8 @@ func ServiceAccountAuthN(ctx context.Context, audience string, pubKeyURLTemplate
 	}
 }
 
-// JWTHMACAuthN handles authentication based on JWT with HMAC protection.
-func JWTHMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
+// HMACAuthN handles authentication based on JWT with HMAC protection.
+func HMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
 	return func(ctx context.Context) (string, error) {
 		tokenStr, err := grpc_auth.AuthFromMD(ctx, "bearer")
 		if err != nil {
@@ -110,31 +110,3 @@ func JWTHMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
 		return token.Claims.(*jwt.StandardClaims).Subject, nil
 	}
 }
-
-/*
-// AuthNZ handles authentication and authrorization.
-func AuthNZ() grpc_auth.AuthFunc {
-	return func(ctx context.Context) (context.Context, error) {
-		tokenStr, err := grpc_auth.AuthFromMD(ctx, "bearer")
-		if err != nil {
-			return nil, err
-		}
-
-		token, _, err := new(jwt.Parser).ParseUnverified(tokenStr, &jwt.StandardClaims{})
-		if err != nil {
-			return nil, err
-		}
-
-
-		//
-		var
-		_, ok := token.Header["kid"]
-		if ok {
-			authenticator = a.SvcAccAuth
-		} else {
-			authenticator = a.UserAuth
-		}
-
-	}
-}
-*/
