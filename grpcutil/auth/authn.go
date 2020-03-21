@@ -83,12 +83,12 @@ func HMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
 			return "", err
 		}
 
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
+		claims := new(jwt.StandardClaims)
+		_, err = jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			}
 
-			claims := token.Claims.(*jwt.StandardClaims)
 			_, err := uuid.Parse(claims.Subject)
 			if err != nil {
 				return nil, err
@@ -107,6 +107,6 @@ func HMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
 			return "", fmt.Errorf("Couldn't handle this token: %v", err)
 		}
 
-		return token.Claims.(*jwt.StandardClaims).Subject, nil
+		return claims.Subject, nil
 	}
 }
