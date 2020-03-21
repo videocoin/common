@@ -14,6 +14,7 @@ require (
 	github.com/opentracing/opentracing-go v1.1.0
 	github.com/prometheus/client_golang v1.5.1 // indirect
 	github.com/sirupsen/logrus v1.4.2
+	github.com/stretchr/testify v1.4.0
 	google.golang.org/api v0.20.0
 	google.golang.org/grpc v1.28.0
 )

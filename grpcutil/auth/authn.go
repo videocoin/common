@@ -26,16 +26,15 @@ type Authenticator interface {
 }
 
 // ServiceAccountAuthN handles authentication for service accounts.
-func ServiceAccountAuthN(ctx context.Context, audience string, pubKeyURLTemplate string) AuthenticatorFunc {
+func ServiceAccountAuthN(audience string, pubKeyURLTemplate string) AuthenticatorFunc {
 	return func(ctx context.Context) (string, error) {
 		tokenStr, err := BearerFromMD(ctx)
 		if err != nil {
 			return "", err
 		}
 
-		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
-			claims := token.Claims.(*jwt.StandardClaims)
-
+		claims := new(jwt.StandardClaims)
+		_, err = jwt.ParseWithClaims(tokenStr, claims, func(token *jwt.Token) (interface{}, error) {
 			url, err := url.Parse(claims.Audience)
 			if err != nil {
 				return nil, err
@@ -71,12 +70,12 @@ func ServiceAccountAuthN(ctx context.Context, audience string, pubKeyURLTemplate
 			return "", fmt.Errorf("Couldn't handle this token: %v", err)
 		}
 
-		return token.Claims.(*jwt.StandardClaims).Subject, nil
+		return claims.Subject, nil
 	}
 }
 
 // HMACAuthN handles authentication based on JWT with HMAC protection.
-func HMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
+func HMACAuthN(secret string) AuthenticatorFunc {
 	return func(ctx context.Context) (string, error) {
 		tokenStr, err := grpc_auth.AuthFromMD(ctx, "bearer")
 		if err != nil {
@@ -89,12 +88,7 @@ func HMACAuthN(ctx context.Context, secret string) AuthenticatorFunc {
 				return nil, fmt.Errorf("Unexpected signing method: %v", token.Header["alg"])
 			}
 
-			_, err := uuid.Parse(claims.Subject)
-			if err != nil {
-				return nil, err
-			}
-
-			return secret, nil
+			return []byte(secret), nil
 		})
 		if err != nil {
 			if ve, ok := err.(*jwt.ValidationError); ok {
