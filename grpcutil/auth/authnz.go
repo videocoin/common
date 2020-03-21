@@ -15,12 +15,12 @@ func JWTAuthNZ(audience string, accPublicKeyURLTemplate string, secretHMAC strin
 	return func(ctx context.Context) (context.Context, error) {
 		tokenStr, err := BearerFromMD(ctx)
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.Unauthenticated, err.Error())
 		}
 
 		token, _, err := new(jwt.Parser).ParseUnverified(tokenStr, &jwt.StandardClaims{})
 		if err != nil {
-			return nil, err
+			return nil, status.Error(codes.Unauthenticated, err.Error())
 		}
 
 		var authenticator Authenticator
