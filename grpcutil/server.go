@@ -19,7 +19,7 @@ func DefaultServerOpts(logger *logrus.Entry) []grpc.ServerOption {
 	tracerOpts := grpctracing.WithTracer(opentracing.GlobalTracer())
 	logrusOpts := []grpclogrus.Option{
 		grpclogrus.WithDecider(func(methodFullName string, err error) bool {
-			if methodFullName == "/grpc.health.v1.Health/Check" {
+			if methodFullName == HealthCheckMethodName {
 				return false
 			}
 			return true
