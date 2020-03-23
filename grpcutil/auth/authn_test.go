@@ -26,15 +26,9 @@ func TestHMACAuthN(t *testing.T) {
 			err:        status.Errorf(codes.Unauthenticated, "Request unauthenticated with bearer"),
 		},
 		{
-			authHeader: "Basic eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA",
+			authHeader: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyYmI2YmQ5OS1jMjdjLTQ4ZWEtODViYy1hOGFmYmM5ZjM1Y2IiLCJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.StMn9-Nw_4xi635jsZgVWsomQaCo8W5rwjGr1MikYNM",
 			secret:     "test",
-			output:     "",
-			err:        status.Errorf(codes.Unauthenticated, "Request unauthenticated with bearer"),
-		},
-		{
-			authHeader: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA",
-			secret:     "test",
-			output:     "1234567890",
+			output:     "2bb6bd99-c27c-48ea-85bc-a8afbc9f35cb",
 			err:        nil,
 		},
 	}

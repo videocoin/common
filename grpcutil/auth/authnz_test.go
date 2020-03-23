@@ -8,6 +8,8 @@ import (
 	"github.com/grpc-ecosystem/go-grpc-middleware/util/metautils"
 	"github.com/stretchr/testify/require"
 	"github.com/videocoin/common/grpcutil/auth"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestJWTAuthNZ(t *testing.T) {
@@ -15,26 +17,31 @@ func TestJWTAuthNZ(t *testing.T) {
 		name       string
 		authHeader string
 		secret     string
-		subject    string
-		context    context.Context
+		fullMethod string
 		err        error
 	}{
 		{
-			name:       "valid token with HMAC protection",
-			authHeader: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.5mhBHqs5_DTLdINd9p5m7ZJ6XD0Xc55kIaCRY5r6HRA",
+			name:       "HMAC - valid token",
+			authHeader: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyYmI2YmQ5OS1jMjdjLTQ4ZWEtODViYy1hOGFmYmM5ZjM1Y2IiLCJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.StMn9-Nw_4xi635jsZgVWsomQaCo8W5rwjGr1MikYNM",
 			secret:     "test",
-			subject:    "1234567890",
-			context:    nil,
+			fullMethod: "/videocoin.iam.v1.IAM/CreateKey",
 			err:        nil,
+		},
+		{
+			name:       "HMAC - permission denied",
+			authHeader: "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIyYmI2YmQ5OS1jMjdjLTQ4ZWEtODViYy1hOGFmYmM5ZjM1Y2IiLCJuYW1lIjoiSm9obiBEb2UiLCJpYXQiOjE1MTYyMzkwMjJ9.StMn9-Nw_4xi635jsZgVWsomQaCo8W5rwjGr1MikYNM",
+			secret:     "test",
+			fullMethod: "/videocoin.iam.v1.IAM/DeleteKey",
+			err:        status.Error(codes.PermissionDenied, "Permission iam.serviceAccountKeys.delete is required to perform this operation on account 2bb6bd99-c27c-48ea-85bc-a8afbc9f35cb"),
 		},
 	}
 	for _, testCase := range testCases {
 		t.Run(fmt.Sprintf("name: %s\n", testCase.name), func(t *testing.T) {
 			ctx := make(metautils.NiceMD).Set("authorization", testCase.authHeader).ToIncoming(context.Background())
-			ctx, err := auth.JWTAuthNZ("", "", testCase.secret)(ctx)
+			ctx, err := auth.JWTAuthNZ("", "", testCase.secret)(ctx, testCase.fullMethod)
 			require.Equal(t, testCase.err, err)
-			require.NotNil(t, ctx)
 			if err == nil {
+				require.NotNil(t, ctx)
 				require.NotNil(t, ctx.Value("token"))
 			}
 		})
