@@ -10,7 +10,6 @@ import (
 	opentracing "github.com/opentracing/opentracing-go"
 
 	"github.com/sirupsen/logrus"
-	"github.com/videocoin/common/grpcutil/auth"
 	"google.golang.org/grpc"
 )
 
@@ -44,8 +43,9 @@ func DefaultServerOpts(logger *logrus.Entry) []grpc.ServerOption {
 	}
 }
 
-// DefaultServerOptsWithAuthNZ ...
-func DefaultServerOptsWithAuthNZ(logger *logrus.Entry, authFn auth.AuthNZFunc) []grpc.ServerOption {
+/*
+// DefaultServerOptsWithAuth ...
+func DefaultServerOptsWithAuth(logger *logrus.Entry, auth auth.AuthFunc) []grpc.ServerOption {
 	tracerOpts := grpctracing.WithTracer(opentracing.GlobalTracer())
 	logrusOpts := []grpclogrus.Option{
 		grpclogrus.WithDecider(func(methodFullName string, err error) bool {
@@ -55,6 +55,7 @@ func DefaultServerOptsWithAuthNZ(logger *logrus.Entry, authFn auth.AuthNZFunc) [
 			return true
 		}),
 	}
+
 	authOpts := []auth.Option{
 		auth.WithDecider(func(methodFullName string) bool {
 			if methodFullName == HealthCheckMethodName {
@@ -70,7 +71,7 @@ func DefaultServerOptsWithAuthNZ(logger *logrus.Entry, authFn auth.AuthNZFunc) [
 			grpctags.UnaryServerInterceptor(),
 			grpctracing.UnaryServerInterceptor(tracerOpts),
 			grpcprometheus.UnaryServerInterceptor,
-			auth.UnaryServerInterceptor(authFn, authOpts...),
+			auth.UnaryServerInterceptor(auth, authOpts...),
 			grpcvalidator.UnaryServerInterceptor(),
 		)),
 		grpc.StreamInterceptor(grpcmiddleware.ChainStreamServer(
@@ -78,8 +79,9 @@ func DefaultServerOptsWithAuthNZ(logger *logrus.Entry, authFn auth.AuthNZFunc) [
 			grpctags.StreamServerInterceptor(),
 			grpctracing.StreamServerInterceptor(tracerOpts),
 			grpcprometheus.StreamServerInterceptor,
-			auth.StreamServerInterceptor(authFn, authOpts...),
+			auth.StreamServerInterceptor(auth, authOpts...),
 			grpcvalidator.StreamServerInterceptor(),
 		)),
 	}
 }
+*/
