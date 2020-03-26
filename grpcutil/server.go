@@ -8,17 +8,20 @@ import (
 	grpcvalidator "github.com/grpc-ecosystem/go-grpc-middleware/validator"
 	grpcprometheus "github.com/grpc-ecosystem/go-grpc-prometheus"
 	opentracing "github.com/opentracing/opentracing-go"
+	"github.com/videocoin/runtime/middleware/auth"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
+const HealthCheckFullMethod = "/grpc.health.v1.Health/Check"
+
 // DefaultServerOpts ...
 func DefaultServerOpts(logger *logrus.Entry) []grpc.ServerOption {
 	tracerOpts := grpctracing.WithTracer(opentracing.GlobalTracer())
 	logrusOpts := []grpclogrus.Option{
-		grpclogrus.WithDecider(func(methodFullName string, err error) bool {
-			if methodFullName == HealthCheckMethodName {
+		grpclogrus.WithDecider(func(fullMethod string, err error) bool {
+			if fullMethod == HealthCheckFullMethod {
 				return false
 			}
 			return true
@@ -43,13 +46,12 @@ func DefaultServerOpts(logger *logrus.Entry) []grpc.ServerOption {
 	}
 }
 
-/*
 // DefaultServerOptsWithAuth ...
-func DefaultServerOptsWithAuth(logger *logrus.Entry, auth auth.AuthFunc) []grpc.ServerOption {
+func DefaultServerOptsWithAuth(logger *logrus.Entry, authFunc auth.AuthFunc) []grpc.ServerOption {
 	tracerOpts := grpctracing.WithTracer(opentracing.GlobalTracer())
 	logrusOpts := []grpclogrus.Option{
-		grpclogrus.WithDecider(func(methodFullName string, err error) bool {
-			if methodFullName == HealthCheckMethodName {
+		grpclogrus.WithDecider(func(fullMethod string, err error) bool {
+			if fullMethod == HealthCheckFullMethod {
 				return false
 			}
 			return true
@@ -57,8 +59,8 @@ func DefaultServerOptsWithAuth(logger *logrus.Entry, auth auth.AuthFunc) []grpc.
 	}
 
 	authOpts := []auth.Option{
-		auth.WithDecider(func(methodFullName string) bool {
-			if methodFullName == HealthCheckMethodName {
+		auth.WithDecider(func(fullMethod string) bool {
+			if fullMethod == HealthCheckFullMethod {
 				return false
 			}
 			return true
@@ -71,7 +73,7 @@ func DefaultServerOptsWithAuth(logger *logrus.Entry, auth auth.AuthFunc) []grpc.
 			grpctags.UnaryServerInterceptor(),
 			grpctracing.UnaryServerInterceptor(tracerOpts),
 			grpcprometheus.UnaryServerInterceptor,
-			auth.UnaryServerInterceptor(auth, authOpts...),
+			auth.UnaryServerInterceptor(authFunc, authOpts...),
 			grpcvalidator.UnaryServerInterceptor(),
 		)),
 		grpc.StreamInterceptor(grpcmiddleware.ChainStreamServer(
@@ -79,9 +81,8 @@ func DefaultServerOptsWithAuth(logger *logrus.Entry, auth auth.AuthFunc) []grpc.
 			grpctags.StreamServerInterceptor(),
 			grpctracing.StreamServerInterceptor(tracerOpts),
 			grpcprometheus.StreamServerInterceptor,
-			auth.StreamServerInterceptor(auth, authOpts...),
+			auth.StreamServerInterceptor(authFunc, authOpts...),
 			grpcvalidator.StreamServerInterceptor(),
 		)),
 	}
 }
-*/
