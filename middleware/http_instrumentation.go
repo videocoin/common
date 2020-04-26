@@ -1,14 +1,10 @@
 package middleware
 
-
-package middleware
-
 import (
 	"net/http"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	prom "github.com/uber/jaeger-client-go/metrics/prometheus"
 )
 
 func InstrumentHandler(reg prometheus.Registerer, h http.Handler) http.Handler {
@@ -43,5 +39,5 @@ func InstrumentHandler(reg prometheus.Registerer, h http.Handler) http.Handler {
 		}
 	}
 
-	return promhttp.InstrumentHandlerCounter(cnt, prom.httpInstrumentHandlerInFlight(gge, h))
+	return promhttp.InstrumentHandlerCounter(cnt, promhttp.InstrumentHandlerInFlight(gge, h))
 }
