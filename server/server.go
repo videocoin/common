@@ -18,7 +18,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	node_https "github.com/prometheus/node_exporter/https"
 	"github.com/weaveworks/common/instrument"
-	"github.com/weaveworks/common/signals"
 	"golang.org/x/net/context"
 	"golang.org/x/net/netutil"
 	"google.golang.org/grpc"
@@ -27,6 +26,7 @@ import (
 
 	"github.com/videocoin/common/logging"
 	"github.com/videocoin/common/middleware"
+	"github.com/videocoin/common/signals"
 )
 
 // Config for a Server
