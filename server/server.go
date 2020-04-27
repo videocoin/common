@@ -17,6 +17,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	node_https "github.com/prometheus/node_exporter/https"
+	"github.com/weaveworks/common/httpgrpc"
 	"github.com/weaveworks/common/instrument"
 	"golang.org/x/net/context"
 	"golang.org/x/net/netutil"
@@ -304,6 +305,10 @@ func (s *Server) Run() error {
 		default:
 		}
 	}()
+
+	// Setup gRPC server
+	// for HTTP over gRPC, ensure we don't double-count the middleware
+	httpgrpc.RegisterHTTPServer(s.GRPC, httpgrpc_server.NewServer(s.HTTP))
 
 	go func() {
 		err := s.GRPC.Serve(s.grpcListener)
