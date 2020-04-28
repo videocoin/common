@@ -52,6 +52,16 @@ func Errorln(args ...interface{}) {
 	global.Errorln(args...)
 }
 
+// Fatalf convenience function calls the global logger.
+func Fatalf(format string, args ...interface{}) {
+	global.Fatalf(format, args...)
+}
+
+// Fatalln convenience function calls the global logger.
+func Fatalln(args ...interface{}) {
+	global.Fatalln(args...)
+}
+
 // WithField convenience function calls the global logger.
 func WithField(key string, value interface{}) Interface {
 	return global.WithField(key, value)

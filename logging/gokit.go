@@ -53,6 +53,15 @@ func (g gokit) Errorln(args ...interface{}) {
 	level.Error(g.Logger).Log("msg", fmt.Sprintln(args...))
 }
 
+func (g gokit) Fatalf(format string, args ...interface{}) {
+	g.Errorf(format, args)
+	os.Exit(1)
+}
+func (g gokit) Fatalln(args ...interface{}) {
+	g.Errorln(args)
+	os.Exit(1)
+}
+
 func (g gokit) WithField(key string, value interface{}) Interface {
 	return gokit{log.With(g.Logger, key, value)}
 }
