@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	jaeger "github.com/jaegertracing/jaeger-client-go"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	opentracing "github.com/opentracing/opentracing-go"
+	jaeger "github.com/uber/jaeger-client-go"
 	"golang.org/x/net/context"
 )
 
