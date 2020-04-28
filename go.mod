@@ -15,7 +15,7 @@ require (
 	github.com/prometheus/node_exporter v1.0.0-rc.0.0.20200417100735-fa4edd700ebc
 	github.com/sirupsen/logrus v1.5.0
 	github.com/stretchr/testify v1.5.1
-	github.com/uber/jaeger-client-go v2.23.0+incompatible
+	github.com/uber/jaeger-client-go v2.15.0+incompatible
 	github.com/weaveworks/common v0.0.0-20200422142334-cc121b2aa707
 	github.com/weaveworks/promrus v1.2.0
 	golang.org/x/net v0.0.0-20200425230154-ff2c4b7c35a0
