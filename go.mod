@@ -15,6 +15,8 @@ require (
 	github.com/prometheus/client_golang v1.6.0
 	github.com/prometheus/node_exporter v1.0.0-rc.0.0.20200417100735-fa4edd700ebc
 	github.com/sirupsen/logrus v1.5.0
+	github.com/spf13/cobra v0.0.3
+	github.com/spf13/viper v1.6.3
 	github.com/stretchr/testify v1.5.1
 	github.com/uber/jaeger-client-go v2.23.0+incompatible
 	github.com/weaveworks/common v0.0.0-20200422142334-cc121b2aa707
