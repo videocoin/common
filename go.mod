@@ -3,6 +3,7 @@ module github.com/videocoin/common
 go 1.14
 
 require (
+	github.com/ethereum/go-ethereum v1.9.13
 	github.com/go-kit/kit v0.10.0
 	github.com/golang/protobuf v1.4.0
 	github.com/gorilla/mux v1.7.4
