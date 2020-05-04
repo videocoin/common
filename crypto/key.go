@@ -4,15 +4,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
+
+	"github.com/videocoin/common/filepath"
 )
 
 // DecryptKeyFile ...
 func DecryptKeyFile(keyFilePath, passFilePath string) (*keystore.Key, error) {
-	f, err := os.Open(maybeSymlink(keyFilePath))
+	f, err := os.Open(filepath.MaybeSymlink(keyFilePath))
 	if err != nil {
 		return nil, fmt.Errorf("failed to open keyfile %s: %v", keyFilePath, err)
 	}
@@ -47,13 +48,4 @@ func DecryptKeyFile(keyFilePath, passFilePath string) (*keystore.Key, error) {
 	}
 
 	return key, nil
-}
-
-func maybeSymlink(path string) string {
-	path = strings.TrimSpace(path)
-	symPath, err := filepath.EvalSymlinks(path)
-	if err != nil {
-		return path
-	}
-	return symPath
 }
