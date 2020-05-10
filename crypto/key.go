@@ -7,13 +7,11 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
-
-	"github.com/videocoin/common/filepath"
 )
 
 // DecryptKeyFile ...
 func DecryptKeyFile(keyFilePath, passFilePath string) (*keystore.Key, error) {
-	f, err := os.Open(filepath.MaybeSymlink(keyFilePath))
+	f, err := os.Open(keyFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open keyfile %s: %v", keyFilePath, err)
 	}
