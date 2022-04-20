@@ -5,9 +5,7 @@ import (
 	"net/http"
 
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
-	opentracing "github.com/opentracing/opentracing-go"
-	jaeger "github.com/uber/jaeger-client-go"
-	"golang.org/x/net/context"
+	"github.com/opentracing/opentracing-go"
 )
 
 // Dummy dependency to enforce that we have a nethttp version newer
@@ -17,32 +15,34 @@ var _ = nethttp.MWURLTagFunc
 // Tracer is a middleware which traces incoming requests.
 type Tracer struct {
 	RouteMatcher RouteMatcher
+	SourceIPs    *SourceIPExtractor
 }
 
 // Wrap implements Interface
 func (t Tracer) Wrap(next http.Handler) http.Handler {
-	opMatcher := nethttp.OperationNameFunc(func(r *http.Request) string {
-		op := getRouteName(t.RouteMatcher, r)
-		if op == "" {
-			return "HTTP " + r.Method
-		}
+	options := []nethttp.MWOption{
+		nethttp.OperationNameFunc(func(r *http.Request) string {
+			op := getRouteName(t.RouteMatcher, r)
+			if op == "" {
+				return "HTTP " + r.Method
+			}
 
-		return fmt.Sprintf("HTTP %s - %s", r.Method, op)
-	})
+			return fmt.Sprintf("HTTP %s - %s", r.Method, op)
+		}),
+		nethttp.MWSpanObserver(func(sp opentracing.Span, r *http.Request) {
+			// add a tag with the client's user agent to the span
+			userAgent := r.Header.Get("User-Agent")
+			if userAgent != "" {
+				sp.SetTag("http.user_agent", userAgent)
+			}
 
-	return nethttp.Middleware(opentracing.GlobalTracer(), next, opMatcher)
-}
-
-// ExtractTraceID extracts the trace id, if any from the context.
-func ExtractTraceID(ctx context.Context) (string, bool) {
-	sp := opentracing.SpanFromContext(ctx)
-	if sp == nil {
-		return "", false
+			// add a tag with the client's sourceIPs to the span, if a
+			// SourceIPExtractor is given.
+			if t.SourceIPs != nil {
+				sp.SetTag("sourceIPs", t.SourceIPs.Get(r))
+			}
+		}),
 	}
-	sctx, ok := sp.Context().(jaeger.SpanContext)
-	if !ok {
-		return "", false
-	}
 
-	return sctx.TraceID().String(), true
+	return nethttp.Middleware(opentracing.GlobalTracer(), next, options...)
 }

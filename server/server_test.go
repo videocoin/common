@@ -1,10 +1,12 @@
 package server
 
 import (
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
 	"flag"
+	"io"
 	"io/ioutil"
 	"net/http"
 	"os/exec"
@@ -12,17 +14,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/status"
 
 	google_protobuf "github.com/golang/protobuf/ptypes/empty"
+	"github.com/gorilla/mux"
 	"github.com/prometheus/client_golang/prometheus"
-	node_https "github.com/prometheus/node_exporter/https"
+	"github.com/prometheus/exporter-toolkit/web"
 	"github.com/stretchr/testify/require"
-	"github.com/weaveworks/common/httpgrpc"
-	"github.com/weaveworks/common/logging"
-	"github.com/weaveworks/common/middleware"
+	"github.com/videocoin/common/httpgrpc"
+	"github.com/videocoin/common/logging"
+	"github.com/videocoin/common/middleware"
 	"golang.org/x/net/context"
 )
 
@@ -61,6 +65,47 @@ func cancelableSleep(ctx context.Context, sleep time.Duration) error {
 	case <-ctx.Done():
 	}
 	return ctx.Err()
+}
+
+func TestTCPv4Network(t *testing.T) {
+	cfg := Config{
+		HTTPListenNetwork: NetworkTCPV4,
+		HTTPListenAddress: "localhost",
+		HTTPListenPort:    9290,
+		GRPCListenNetwork: NetworkTCPV4,
+		GRPCListenAddress: "localhost",
+		GRPCListenPort:    9291,
+	}
+	t.Run("http", func(t *testing.T) {
+		cfg.MetricsNamespace = "testing_http_tcp4"
+		srv, err := New(cfg)
+		require.NoError(t, err)
+
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- srv.Run()
+		}()
+
+		require.NoError(t, srv.httpListener.Close())
+		require.NotNil(t, <-errChan)
+
+		// So that address is freed for further tests.
+		srv.GRPC.Stop()
+	})
+
+	t.Run("grpc", func(t *testing.T) {
+		cfg.MetricsNamespace = "testing_grpc_tcp4"
+		srv, err := New(cfg)
+		require.NoError(t, err)
+
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- srv.Run()
+		}()
+
+		require.NoError(t, srv.grpcListener.Close())
+		require.NotNil(t, <-errChan)
+	})
 }
 
 // Ensure that http and grpc servers work with no overrides to config
@@ -118,6 +163,9 @@ func TestErrorInstrumentationMiddleware(t *testing.T) {
 	})
 	server.HTTP.HandleFunc("/sleep10", func(w http.ResponseWriter, r *http.Request) {
 		_ = cancelableSleep(r.Context(), time.Second*10)
+	})
+	server.HTTP.NotFoundHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
 	})
 
 	go server.Run()
@@ -184,6 +232,12 @@ func TestErrorInstrumentationMiddleware(t *testing.T) {
 		require.NoError(t, err)
 	}
 	{
+		req, err := http.NewRequest("GET", "http://127.0.0.1:9090/notfound", nil)
+		require.NoError(t, err)
+		_, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+	}
+	{
 		req, err := http.NewRequest("GET", "http://127.0.0.1:9090/sleep10", nil)
 		require.NoError(t, err)
 		err = callThenCancel(func(ctx context.Context) error {
@@ -225,13 +279,171 @@ func TestErrorInstrumentationMiddleware(t *testing.T) {
 		"error500":                             "500",
 		"sleep10":                              "200",
 		"succeed":                              "200",
+		"notfound":                             "404",
 	}, statuses)
+}
+
+func TestHTTPInstrumentationMetrics(t *testing.T) {
+	reg := prometheus.NewRegistry()
+	prometheus.DefaultRegisterer = reg
+	prometheus.DefaultGatherer = reg
+
+	var cfg Config
+	cfg.RegisterFlags(flag.NewFlagSet("", flag.ExitOnError))
+	cfg.HTTPListenPort = 9090 // can't use 80 as ordinary user
+	cfg.GRPCListenAddress = "localhost"
+	cfg.GRPCListenPort = 1234
+	server, err := New(cfg)
+	require.NoError(t, err)
+
+	server.HTTP.HandleFunc("/succeed", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("OK"))
+	})
+	server.HTTP.HandleFunc("/error500", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	})
+	server.HTTP.HandleFunc("/sleep10", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(ioutil.Discard, r.Body) // Consume body, otherwise it's not counted.
+		_ = cancelableSleep(r.Context(), time.Second*10)
+	})
+
+	go server.Run()
+
+	callThenCancel := func(f func(ctx context.Context) error) error {
+		ctx, cancel := context.WithCancel(context.Background())
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- f(ctx)
+		}()
+		time.Sleep(50 * time.Millisecond) // allow the call to reach the handler
+		cancel()
+		return <-errChan
+	}
+
+	// Now test the HTTP versions of the functions
+	{
+		req, err := http.NewRequest("GET", "http://127.0.0.1:9090/succeed", nil)
+		require.NoError(t, err)
+		resp, err := http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		body, err := ioutil.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.Equal(t, "OK", string(body))
+	}
+	{
+		req, err := http.NewRequest("GET", "http://127.0.0.1:9090/error500", nil)
+		require.NoError(t, err)
+		_, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+	}
+	{
+		req, err := http.NewRequest("POST", "http://127.0.0.1:9090/sleep10", bytes.NewReader([]byte("Body")))
+		require.NoError(t, err)
+		err = callThenCancel(func(ctx context.Context) error {
+			_, err = http.DefaultClient.Do(req.WithContext(ctx))
+			return err
+		})
+		require.Error(t, err, context.Canceled)
+	}
+
+	server.Shutdown()
+
+	require.NoError(t, testutil.GatherAndCompare(prometheus.DefaultGatherer, bytes.NewBufferString(`
+		# HELP inflight_requests Current number of inflight requests.
+		# TYPE inflight_requests gauge
+		inflight_requests{method="POST",route="sleep10"} 0
+		inflight_requests{method="GET",route="succeed"} 0
+       	inflight_requests{method="GET",route="error500"} 0
+
+		# HELP request_message_bytes Size (in bytes) of messages received in the request.
+		# TYPE request_message_bytes histogram
+		request_message_bytes_bucket{method="GET",route="error500",le="1.048576e+06"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="2.62144e+06"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="5.24288e+06"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="1.048576e+07"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="2.62144e+07"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="5.24288e+07"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="1.048576e+08"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="2.62144e+08"} 1
+		request_message_bytes_bucket{method="GET",route="error500",le="+Inf"} 1
+		request_message_bytes_sum{method="GET",route="error500"} 0
+		request_message_bytes_count{method="GET",route="error500"} 1
+
+		request_message_bytes_bucket{method="POST",route="sleep10",le="1.048576e+06"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="2.62144e+06"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="5.24288e+06"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="1.048576e+07"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="2.62144e+07"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="5.24288e+07"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="1.048576e+08"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="2.62144e+08"} 1
+		request_message_bytes_bucket{method="POST",route="sleep10",le="+Inf"} 1
+		request_message_bytes_sum{method="POST",route="sleep10"} 4
+		request_message_bytes_count{method="POST",route="sleep10"} 1
+
+		request_message_bytes_bucket{method="GET",route="succeed",le="1.048576e+06"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="2.62144e+06"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="5.24288e+06"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="1.048576e+07"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="2.62144e+07"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="5.24288e+07"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="1.048576e+08"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="2.62144e+08"} 1
+		request_message_bytes_bucket{method="GET",route="succeed",le="+Inf"} 1
+		request_message_bytes_sum{method="GET",route="succeed"} 0
+		request_message_bytes_count{method="GET",route="succeed"} 1
+
+		# HELP response_message_bytes Size (in bytes) of messages sent in response.
+		# TYPE response_message_bytes histogram
+		response_message_bytes_bucket{method="GET",route="error500",le="1.048576e+06"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="2.62144e+06"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="5.24288e+06"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="1.048576e+07"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="2.62144e+07"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="5.24288e+07"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="1.048576e+08"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="2.62144e+08"} 1
+		response_message_bytes_bucket{method="GET",route="error500",le="+Inf"} 1
+		response_message_bytes_sum{method="GET",route="error500"} 0
+		response_message_bytes_count{method="GET",route="error500"} 1
+
+		response_message_bytes_bucket{method="POST",route="sleep10",le="1.048576e+06"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="2.62144e+06"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="5.24288e+06"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="1.048576e+07"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="2.62144e+07"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="5.24288e+07"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="1.048576e+08"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="2.62144e+08"} 1
+		response_message_bytes_bucket{method="POST",route="sleep10",le="+Inf"} 1
+		response_message_bytes_sum{method="POST",route="sleep10"} 0
+		response_message_bytes_count{method="POST",route="sleep10"} 1
+
+		response_message_bytes_bucket{method="GET",route="succeed",le="1.048576e+06"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="2.62144e+06"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="5.24288e+06"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="1.048576e+07"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="2.62144e+07"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="5.24288e+07"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="1.048576e+08"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="2.62144e+08"} 1
+		response_message_bytes_bucket{method="GET",route="succeed",le="+Inf"} 1
+		response_message_bytes_sum{method="GET",route="succeed"} 2
+		response_message_bytes_count{method="GET",route="succeed"} 1
+
+		# HELP tcp_connections Current number of accepted TCP connections.
+		# TYPE tcp_connections gauge
+		tcp_connections{protocol="http"} 0
+		tcp_connections{protocol="grpc"} 0
+	`), "request_message_bytes", "response_message_bytes", "inflight_requests", "tcp_connections"))
 }
 
 func TestRunReturnsError(t *testing.T) {
 	cfg := Config{
+		HTTPListenNetwork: DefaultNetwork,
 		HTTPListenAddress: "localhost",
-		HTTPListenPort:    9190,
+		HTTPListenPort:    9090,
+		GRPCListenNetwork: DefaultNetwork,
 		GRPCListenAddress: "localhost",
 		GRPCListenPort:    9191,
 	}
@@ -272,12 +484,16 @@ func TestMiddlewareLogging(t *testing.T) {
 	var level logging.Level
 	level.Set("info")
 	cfg := Config{
-		HTTPListenAddress: "localhost",
-		HTTPListenPort:    9192,
-		GRPCListenAddress: "localhost",
-		HTTPMiddleware:    []middleware.Interface{middleware.Logging},
-		MetricsNamespace:  "testing_logging",
-		LogLevel:          level,
+		HTTPListenNetwork:             DefaultNetwork,
+		HTTPListenAddress:             "localhost",
+		HTTPListenPort:                9192,
+		GRPCListenNetwork:             DefaultNetwork,
+		GRPCListenAddress:             "localhost",
+		HTTPMiddleware:                []middleware.Interface{middleware.Logging},
+		MetricsNamespace:              "testing_logging",
+		LogLevel:                      level,
+		DoNotAddDefaultHTTPMiddleware: true,
+		Router:                        &mux.Router{},
 	}
 	server, err := New(cfg)
 	require.NoError(t, err)
@@ -303,21 +519,23 @@ func TestTLSServer(t *testing.T) {
 	require.NoError(t, err)
 
 	cfg := Config{
+		HTTPListenNetwork: DefaultNetwork,
 		HTTPListenAddress: "localhost",
 		HTTPListenPort:    9193,
-		HTTPTLSConfig: node_https.TLSStruct{
+		HTTPTLSConfig: web.TLSStruct{
 			TLSCertPath: "certs/server.crt",
 			TLSKeyPath:  "certs/server.key",
 			ClientAuth:  "RequireAndVerifyClientCert",
 			ClientCAs:   "certs/root.crt",
 		},
-		GRPCTLSConfig: node_https.TLSStruct{
+		GRPCTLSConfig: web.TLSStruct{
 			TLSCertPath: "certs/server.crt",
 			TLSKeyPath:  "certs/server.key",
 			ClientAuth:  "VerifyClientCertIfGiven",
 			ClientCAs:   "certs/root.crt",
 		},
 		MetricsNamespace:  "testing_tls",
+		GRPCListenNetwork: DefaultNetwork,
 		GRPCListenAddress: "localhost",
 		GRPCListenPort:    9194,
 	}
@@ -373,4 +591,116 @@ func TestTLSServer(t *testing.T) {
 	grpcRes, err := grpcClient.Succeed(context.Background(), &empty)
 	require.NoError(t, err)
 	require.EqualValues(t, &empty, grpcRes)
+}
+
+type FakeLogger struct {
+	sourceIPs string
+}
+
+func (f *FakeLogger) Debugf(format string, args ...interface{}) {}
+func (f *FakeLogger) Debugln(args ...interface{})               {}
+
+func (f *FakeLogger) Infof(format string, args ...interface{}) {}
+func (f *FakeLogger) Infoln(args ...interface{})               {}
+
+func (f *FakeLogger) Errorf(format string, args ...interface{}) {}
+func (f *FakeLogger) Errorln(args ...interface{})               {}
+
+func (f *FakeLogger) Warnf(format string, args ...interface{}) {}
+func (f *FakeLogger) Warnln(args ...interface{})               {}
+
+func (f *FakeLogger) WithField(key string, value interface{}) logging.Interface {
+	if key == "sourceIPs" {
+		f.sourceIPs = value.(string)
+	}
+
+	return f
+}
+
+func (f *FakeLogger) WithFields(fields logging.Fields) logging.Interface {
+	return f
+}
+
+func TestLogSourceIPs(t *testing.T) {
+	var level logging.Level
+	level.Set("debug")
+	fake := FakeLogger{}
+	cfg := Config{
+		HTTPListenNetwork: DefaultNetwork,
+		HTTPListenAddress: "localhost",
+		HTTPListenPort:    9195,
+		GRPCListenNetwork: DefaultNetwork,
+		GRPCListenAddress: "localhost",
+		HTTPMiddleware:    []middleware.Interface{middleware.Logging},
+		MetricsNamespace:  "testing_mux",
+		LogLevel:          level,
+		Log:               &fake,
+		LogSourceIPs:      true,
+	}
+	server, err := New(cfg)
+	require.NoError(t, err)
+
+	server.HTTP.HandleFunc("/error500", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+	})
+
+	go server.Run()
+	defer server.Shutdown()
+
+	require.Empty(t, fake.sourceIPs)
+
+	req, err := http.NewRequest("GET", "http://127.0.0.1:9195/error500", nil)
+	require.NoError(t, err)
+	http.DefaultClient.Do(req)
+
+	require.Equal(t, fake.sourceIPs, "127.0.0.1")
+}
+
+func TestStopWithDisabledSignalHandling(t *testing.T) {
+	cfg := Config{
+		HTTPListenNetwork: DefaultNetwork,
+		HTTPListenAddress: "localhost",
+		HTTPListenPort:    9198,
+		GRPCListenNetwork: DefaultNetwork,
+		GRPCListenAddress: "localhost",
+		GRPCListenPort:    9199,
+	}
+
+	var test = func(t *testing.T, metricsNamespace string, handler SignalHandler) {
+		cfg.SignalHandler = handler
+		cfg.MetricsNamespace = metricsNamespace
+		srv, err := New(cfg)
+		require.NoError(t, err)
+
+		errChan := make(chan error, 1)
+		go func() {
+			errChan <- srv.Run()
+		}()
+
+		srv.Stop()
+		require.Nil(t, <-errChan)
+
+		// So that addresses is freed for further tests.
+		srv.Shutdown()
+	}
+
+	t.Run("signals_enabled", func(t *testing.T) {
+		test(t, "signals_enabled", nil)
+	})
+
+	t.Run("signals_disabled", func(t *testing.T) {
+		test(t, "signals_disabled", dummyHandler{quit: make(chan struct{})})
+	})
+}
+
+type dummyHandler struct {
+	quit chan struct{}
+}
+
+func (dh dummyHandler) Loop() {
+	<-dh.quit
+}
+
+func (dh dummyHandler) Stop() {
+	close(dh.quit)
 }

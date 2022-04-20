@@ -15,8 +15,6 @@ func (noop) Warnf(format string, args ...interface{})  {}
 func (noop) Warnln(args ...interface{})                {}
 func (noop) Errorf(format string, args ...interface{}) {}
 func (noop) Errorln(args ...interface{})               {}
-func (noop) Fatalf(format string, args ...interface{}) {}
-func (noop) Fatalln(args ...interface{})               {}
 func (noop) WithField(key string, value interface{}) Interface {
 	return noop{}
 }

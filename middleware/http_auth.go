@@ -3,7 +3,7 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/weaveworks/common/user"
+	"github.com/videocoin/common/user"
 )
 
 // AuthenticateUser propagates the user ID from HTTP headers back to the request's context.
